@@ -1,0 +1,14 @@
+# testing
+pytest
+pytest-cov
+# syntax check
+flake8
+# syntax enforcer
+black
+# pypi
+twine
+# packaging
+wheel
+setuptools
+# project hygene
+pre-commit
