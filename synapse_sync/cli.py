@@ -84,10 +84,10 @@ def get_current_requests():
         json_output = json.loads(output)
         return json_output
     except subprocess.CalledProcessError as e:
-        click.secho(f"Command '{cmd}' failed with error: {e}")
+        click.secho(f"Command '{cmd}' failed with error: {e}", fg="red", file=sys.stderr)
         return None
     except json.JSONDecodeError as e:
-        print(f"Failed to parse JSON output from command '{cmd}': {e}")
+        click.secho(f"Failed to parse JSON output from command '{cmd}': {e}", fg="red", file=sys.stderr)
         return None
 
 
@@ -134,7 +134,12 @@ TEAM_ID one of:
 
         current_requests = get_current_requests()
         if not current_requests:
-            return
+            current_requests = {'requests': []}
+            click.secho(f"Failed to get current requests, proceeding, status may not be accurate.", fg="yellow", file=sys.stderr)
+        if 'requests' not in current_requests:
+            current_requests['requests'] = []
+            click.secho(current_requests['msg'], fg="yellow", file=sys.stderr)
+        assert 'requests' in current_requests, f"Expected 'requests' in {current_requests}"
 
         current_users = {_.get('username'): _ for _ in current_requests['requests'] if project in _['policy_id']}
         # for k, v in current_users.items():
@@ -149,9 +154,9 @@ TEAM_ID one of:
                 user_name_msg = f' # {_.member.userName}'
                 if username in current_users:
                     usr = current_users[username]
-                    user_name_msg += f" {usr['status']} {usr['updated_time']} {usr['policy_id']} "
+                    user_name_msg += f" STATUS {usr['status']} {usr['updated_time']} {usr['policy_id']} "
                 else:
-                    user_name_msg += f" NOT ADDED"
+                    user_name_msg += f" STATUS NONE"
             print(f"g3t utilities users add --username '{_.member.ownerId} (Synapse ID)'{user_name_msg}")
 
             # invites = syn.get_team_open_invitations(team)
@@ -160,3 +165,5 @@ TEAM_ID one of:
 
     except Exception as e:
         click.secho(f"{e.__class__.__name__} {e}", fg="red", file=sys.stderr)
+        if debug:
+            raise e
