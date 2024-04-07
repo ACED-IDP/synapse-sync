@@ -147,7 +147,12 @@ TEAM_ID one of:
 
         team = syn.getTeam(team_id)
         click.secho(f"Syncing team: {team.name}", fg="yellow", file=sys.stderr)
+        first = True
         for _ in syn.getTeamMembers(team):
+            if first:
+                first = False
+                click.secho("<cmd> # name status updated_time policy_id", fg="yellow")
+                continue
             user_name_msg = ''
             username = f'{_.member.ownerId} (Synapse ID)'
             if long:
