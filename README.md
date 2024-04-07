@@ -20,11 +20,11 @@ pip install g3t-synapse-sync
 ## Configuration
 
 * Follow [these instructions](https://aced-idp.github.io/getting-started/) to configure the g3t client.
-* We recommend using the g3t profile 'bridg2ai' 
+  * We recommend using the g3t profile 'bridg2ai' ie `export G3T_PROFILE=bridge2ai`
 
 * Follow these instructions to setup the synapse client:
-*  https://python-docs.synapse.org/tutorials/authentication/#prerequisites
-*  https://help.synapse.org/docs/Client-Configuration.1985446156.html#ClientConfiguration-ForDevelopers
+  *  https://python-docs.synapse.org/tutorials/authentication/#prerequisites
+  *  https://help.synapse.org/docs/Client-Configuration.1985446156.html#ClientConfiguration-ForDevelopers
 
 ## Test
 ```shell
@@ -55,10 +55,6 @@ Logging in to synapse
 Getting current gen3 users
 Syncing team: Bridge2AI AI-READI Open House Participants
 <cmd> # name status updated_time policy_id
-g3t utilities users add --username '3327899 (Synapse ID)' # bwalsh STATUS SIGNED 2024-04-06T23:58:31.828793 programs.bridge2ai.projects.AI_READI_reader 
-g3t utilities users add --username '3409305 (Synapse ID)' # weiwang1973 STATUS NONE
-g3t utilities users add --username '3421787 (Synapse ID)' # Hayley.Sanchez STATUS SIGNED 2024-04-06T23:58:31.132397 programs.bridge2ai.projects.AI_READI_reader 
-g3t utilities users add --username '3432088 (Synapse ID)' # albrecht STATUS SIGNED 2024-04-06T23:58:31.327220 programs.bridge2ai.projects.AI_READI_reader 
-g3t utilities users add --username '3465139 (Synapse ID)' # lbeckman314 STATUS SIGNED 2024-04-06T23:58:31.517115 programs.bridge2ai.projects.AI_READI_reader 
-
+g3t utilities users add --username '1234567 (Synapse ID)' # user1 STATUS SIGNED 2024-04-06T23:58:31.828793 programs.bridge2ai.projects.AI_READI_reader 
+g3t utilities users add --username '7654321 (Synapse ID)' # user2 STATUS NONE
 ```

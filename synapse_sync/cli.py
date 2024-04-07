@@ -7,11 +7,12 @@ import synapseclient
 import click
 import yaml
 from synapseclient import Synapse
+import gen3_util.config
 
 
 def login(debug: bool) -> Synapse:
     """Login to synapse."""
-    click.secho(f"Logging in to synapse", fg="yellow", file=sys.stderr)
+    # click.secho(f"Logging in to synapse", fg="yellow", file=sys.stderr)
 
     try:
 
@@ -67,16 +68,17 @@ def cli(ctx, config):
     if config:
         with open(config) as f:
             ctx.obj['config'] = yaml.safe_load(f)
-            click.secho(f"Using config file {config}", fg="yellow", file=sys.stderr)
+            # click.secho(f"Using config file {config}", fg="yellow", file=sys.stderr)
     else:
         ctx.obj['config'] = default_config()
-        click.secho(f"Using default config", fg="yellow", file=sys.stderr)
+        # click.secho(f"Using default config", fg="yellow", file=sys.stderr)
 
 
 def get_current_requests():
     """Get Gen3 current requests."""
-    # run cmd get stdout
-    click.secho(f"Getting current gen3 users", fg="yellow", file=sys.stderr)
+    # run cmd, return stdout
+
+    # click.secho(f"Getting current gen3 users", fg="yellow", file=sys.stderr)
     cmd = "g3t --format json utilities access ls --all"
     try:
         result = subprocess.run(cmd, shell=True, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -101,7 +103,7 @@ def teams(ctx):
 @teams.command("ls")
 @click.option('--debug', is_flag=True, default=False, help="log synapse calls")
 @click.option('--long', '-l', is_flag=True, default=False, help="show user name")
-@click.argument('team_id')
+@click.argument('team_id', required=False, default=None)
 @click.pass_context
 def teams_ls(ctx, debug: bool, team_id: str, long: bool):
     """List commands to add users (and current status) of a team to gen3.
@@ -115,6 +117,13 @@ TEAM_ID one of:
     """
 
     try:
+        config = gen3_util.config.default()
+        click.secho(f"gen3 project_id: {config.gen3.project_id}", fg="yellow", file=sys.stderr)
+
+        if not team_id:
+            program, project = config.gen3.project_id.split('-')
+            # click.secho(f"using gen3 project: {project} as team_id", fg="yellow", file=sys.stderr)
+            team_id = project
 
         valid_team_ids = [_['id'] == team_id for _ in ctx.obj['config']['synapse_teams']]
         valid_teams = {_['name']: _['id'] for _ in ctx.obj['config']['synapse_teams']}
@@ -128,8 +137,6 @@ TEAM_ID one of:
                 return
             team_id = valid_teams[team_id]
 
-        project_id = 'bridge2ai-AI_READI'  # TODO - hardcoded
-        program, project = project_id.split('-')
         syn = login(debug)
 
         current_requests = get_current_requests()
@@ -147,26 +154,26 @@ TEAM_ID one of:
 
         team = syn.getTeam(team_id)
         click.secho(f"Syncing team: {team.name}", fg="yellow", file=sys.stderr)
-        first = True
+        cmds = []
         for _ in syn.getTeamMembers(team):
-            if first:
-                first = False
-                click.secho("<cmd> # name status updated_time policy_id", fg="yellow")
-                continue
             user_name_msg = ''
             username = f'{_.member.ownerId} (Synapse ID)'
+            cmd = f"g3t utilities users add --username"
             if long:
                 user_name_msg = f' # {_.member.userName}'
                 if username in current_users:
                     usr = current_users[username]
                     user_name_msg += f" STATUS {usr['status']} {usr['updated_time']} {usr['policy_id']} "
+                    click.secho(f"# '{username}'{user_name_msg}", fg="green", file=sys.stderr)
+                    continue
                 else:
                     user_name_msg += f" STATUS NONE"
-            print(f"g3t utilities users add --username '{_.member.ownerId} (Synapse ID)'{user_name_msg}")
+            cmds.append(f"{cmd} '{_.member.ownerId} (Synapse ID)'{user_name_msg}")
 
-            # invites = syn.get_team_open_invitations(team)
-            # for invite in invites:
-            #     print(invite)
+        if cmds:
+            click.secho("# <cmd> # name status updated_time policy_id", fg="yellow", file=sys.stderr)
+            for cmd in cmds:
+                print(cmd)
 
     except Exception as e:
         click.secho(f"{e.__class__.__name__} {e}", fg="red", file=sys.stderr)
