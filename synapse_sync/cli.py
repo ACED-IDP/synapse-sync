@@ -113,12 +113,10 @@ def teams(ctx):
     pass
 
 
-@teams.command("ls")
-@click.option('--debug', is_flag=True, default=False, help="log synapse calls")
-@click.option('--long', '-l', is_flag=True, default=False, help="show user name")
-@click.argument('team_id', required=False, default=None)
+@teams.command("sync")
+@click.option('--debug', is_flag=True, default=False, help="Show debug output.")
 @click.pass_context
-def teams_ls(ctx, debug: bool, team_id: str, long: bool):
+def teams_sync(ctx, debug: bool):
     """List commands to add users (and current status) of a team to gen3.
 
     \b
@@ -130,13 +128,14 @@ TEAM_ID one of:
     """
 
     try:
+        long = True
         config = gen3_util.config.default()
+        assert config.gen3.project_id, "Not in a gen3 project directory, expected .g3t"
         click.secho(f"gen3 project_id: {config.gen3.project_id}", fg="yellow", file=sys.stderr)
 
-        if not team_id:
-            program, project = config.gen3.project_id.split('-')
-            # click.secho(f"using gen3 project: {project} as team_id", fg="yellow", file=sys.stderr)
-            team_id = project
+        program, project = config.gen3.project_id.split('-')
+        # click.secho(f"using gen3 project: {project} as team_id", fg="yellow", file=sys.stderr)
+        team_id = project
 
         valid_team_ids = [_['id'] == team_id for _ in ctx.obj['config']['synapse_teams']]
         valid_teams = {_['name']: _['id'] for _ in ctx.obj['config']['synapse_teams']}
@@ -160,6 +159,7 @@ TEAM_ID one of:
             current_requests['requests'] = []
             click.secho(current_requests['msg'], fg="yellow", file=sys.stderr)
         assert 'requests' in current_requests, f"Expected 'requests' in {current_requests}"
+        assert len(current_requests['requests']) > 0, f"Expected 'requests' in {current_requests}"
 
         current_users = {_.get('username'): _ for _ in current_requests['requests'] if project in _['policy_id']}
         # for k, v in current_users.items():
@@ -187,8 +187,8 @@ TEAM_ID one of:
             click.secho(f"Adding {len(cmds)} user to gen3", fg="yellow", file=sys.stderr)
             for cmd in cmds:
                 click.secho(cmd, fg="yellow", file=sys.stderr)
-                run_cmd(cmd)
-            run_cmd("g3t utilities access sign")
+                # run_cmd(cmd)
+            # run_cmd("g3t utilities access sign")
         else:
             click.secho(f"No new users to add to gen3", fg="yellow", file=sys.stderr)
 
@@ -198,27 +198,33 @@ TEAM_ID one of:
             raise e
 
 
-@teams.command("sync")
+@teams.command("sync-all")
 @click.option('--program', default="bridge2ai", help="gen3 program")
 @click.option('--projects_dir', default="projects", help="root directory holding <program>-<project>")
+@click.option('--debug', is_flag=True, default=False, help="Show debug output.")
 @click.pass_context
-def teams_sync(ctx, program, projects_dir):
+def teams_sync_all(ctx, program, projects_dir, debug: bool):
     """Sync teams with gen3."""
-    path = pathlib.Path(projects_dir)
-    start_dir = os.getcwd()
-    start_dir = pathlib.Path(start_dir)
-    team_names = [_['name'] for _ in ctx.obj['config']['synapse_teams']]
+    try:
+        path = pathlib.Path(projects_dir)
+        start_dir = os.getcwd()
+        start_dir = pathlib.Path(start_dir)
+        team_names = [_['name'] for _ in ctx.obj['config']['synapse_teams']]
 
-    for team_name in team_names:
-        project_dir = path / f"{program}-{team_name}"
-        assert project_dir.exists(), f"Expected {path / f'{program}-{team_name}'}"
-        project_id = project_dir.name
-        timestamp_str = datetime.now().strftime("%Y%m%d-%H%M%S")
-        log_file = pathlib.Path('logs') / f'synapse-sync-{team_name}-{timestamp_str}.log'
-        click.secho(f"Syncing project {project_id}, log {log_file}", fg="yellow", file=sys.stderr)
-        with open(log_file, 'w') as f:
-            with contextlib.redirect_stdout(f):
-                with contextlib.redirect_stderr(f):
-                    os.chdir(project_dir.absolute())
-                    ctx.invoke(teams_ls, long=True)
-                    os.chdir(start_dir.absolute())
+        for team_name in team_names:
+            project_dir = path / f"{program}-{team_name}"
+            assert project_dir.exists(), f"Missing expected directory: {path / f'{program}-{team_name}'}"
+            project_id = project_dir.name
+            timestamp_str = datetime.now().strftime("%Y%m%d-%H%M%S")
+            log_file = pathlib.Path('logs') / f'synapse-sync-{team_name}-{timestamp_str}.log'
+            click.secho(f"Syncing project {project_id}, log {log_file}", fg="yellow", file=sys.stderr)
+            with open(log_file, 'w') as f:
+                with contextlib.redirect_stdout(f):
+                    with contextlib.redirect_stderr(f):
+                        os.chdir(project_dir.absolute())
+                        ctx.invoke(teams_sync)
+                        os.chdir(start_dir.absolute())
+    except Exception as e:
+        click.secho(f"{e.__class__.__name__} {e}", fg="red", file=sys.stderr)
+        if debug:
+            raise e
