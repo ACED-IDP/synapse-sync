@@ -187,8 +187,8 @@ TEAM_ID one of:
             click.secho(f"Adding {len(cmds)} user to gen3", fg="yellow", file=sys.stderr)
             for cmd in cmds:
                 click.secho(cmd, fg="yellow", file=sys.stderr)
-                # run_cmd(cmd)
-            # run_cmd("g3t utilities access sign")
+                run_cmd(cmd)
+            run_cmd("g3t utilities access sign")
         else:
             click.secho(f"No new users to add to gen3", fg="yellow", file=sys.stderr)
 
