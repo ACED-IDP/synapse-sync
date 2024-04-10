@@ -1,7 +1,10 @@
+import contextlib
 import json
+import os
 import pathlib
 import subprocess
 import sys
+from datetime import datetime
 
 import synapseclient
 import click
@@ -74,20 +77,30 @@ def cli(ctx, config):
         # click.secho(f"Using default config", fg="yellow", file=sys.stderr)
 
 
+def run_cmd(cmd: str):
+    """Run a command."""
+    try:
+        result = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if result.returncode != 0:
+            click.secho(f"Command '{cmd}' failed with error: {result.stderr.decode('utf-8')}", fg="red", file=sys.stderr)
+            return None
+        output = result.stdout.decode('utf-8')
+        return output
+    except subprocess.CalledProcessError as e:
+        click.secho(f"Command '{cmd}' failed with error: {e}, {result.stdout.decode('utf-8')}", fg="red", file=sys.stderr)
+        return None
+
+
 def get_current_requests():
     """Get Gen3 current requests."""
     # run cmd, return stdout
 
     # click.secho(f"Getting current gen3 users", fg="yellow", file=sys.stderr)
-    cmd = "g3t --format json utilities access ls --all"
     try:
-        result = subprocess.run(cmd, shell=True, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        output = result.stdout.decode('utf-8')
+        cmd = "g3t --format json utilities access ls --all"
+        output = run_cmd(cmd)
         json_output = json.loads(output)
         return json_output
-    except subprocess.CalledProcessError as e:
-        click.secho(f"Command '{cmd}' failed with error: {e}", fg="red", file=sys.stderr)
-        return None
     except json.JSONDecodeError as e:
         click.secho(f"Failed to parse JSON output from command '{cmd}': {e}", fg="red", file=sys.stderr)
         return None
@@ -171,11 +184,41 @@ TEAM_ID one of:
             cmds.append(f"{cmd} '{_.member.ownerId} (Synapse ID)'{user_name_msg}")
 
         if cmds:
-            click.secho("# <cmd> # name status updated_time policy_id", fg="yellow", file=sys.stderr)
+            click.secho(f"Adding {len(cmds)} user to gen3", fg="yellow", file=sys.stderr)
             for cmd in cmds:
-                print(cmd)
+                click.secho(cmd, fg="yellow", file=sys.stderr)
+                run_cmd(cmd)
+            run_cmd("g3t utilities access sign")
+        else:
+            click.secho(f"No new users to add to gen3", fg="yellow", file=sys.stderr)
 
     except Exception as e:
         click.secho(f"{e.__class__.__name__} {e}", fg="red", file=sys.stderr)
         if debug:
             raise e
+
+
+@teams.command("sync")
+@click.option('--program', default="bridge2ai", help="gen3 program")
+@click.option('--projects_dir', default="projects", help="root directory holding <program>-<project>")
+@click.pass_context
+def teams_sync(ctx, program, projects_dir):
+    """Sync teams with gen3."""
+    path = pathlib.Path(projects_dir)
+    start_dir = os.getcwd()
+    start_dir = pathlib.Path(start_dir)
+    team_names = [_['name'] for _ in ctx.obj['config']['synapse_teams']]
+
+    for team_name in team_names:
+        project_dir = path / f"{program}-{team_name}"
+        assert project_dir.exists(), f"Expected {path / f'{program}-{team_name}'}"
+        project_id = project_dir.name
+        timestamp_str = datetime.now().strftime("%Y%m%d-%H%M%S")
+        log_file = pathlib.Path('logs') / f'synapse-sync-{team_name}-{timestamp_str}.log'
+        click.secho(f"Syncing project {project_id}, log {log_file}", fg="yellow", file=sys.stderr)
+        with open(log_file, 'w') as f:
+            with contextlib.redirect_stdout(f):
+                with contextlib.redirect_stderr(f):
+                    os.chdir(project_dir.absolute())
+                    ctx.invoke(teams_ls, long=True)
+                    os.chdir(start_dir.absolute())
