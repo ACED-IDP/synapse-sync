@@ -15,7 +15,10 @@ for dir in "${dirs[@]}"; do
   cd "$dir" || continue
 
   # Execute command
-  $cmd
-   # Return to the start directory
+  $cmd | sh
+  # sign 
+  g3t utilities access sign
+
+  # Return to the start directory
   cd "$start_dir"
 done
