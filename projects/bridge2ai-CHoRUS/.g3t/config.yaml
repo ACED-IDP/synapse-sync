@@ -1,6 +1,6 @@
 gen3:
   profile: bridge2ai
-  project_id: bridge2ai-AI_READI
+  project_id: bridge2ai-CHoRUS
   version: null
 log:
   format: '[%(asctime)s] [%(levelname)s] %(name)s %(message)s'
