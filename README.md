@@ -58,3 +58,7 @@ Syncing team: Bridge2AI AI-READI Open House Participants
 g3t utilities users add --username '1234567 (Synapse ID)' # user1 STATUS SIGNED 2024-04-06T23:58:31.828793 programs.bridge2ai.projects.AI_READI_reader 
 g3t utilities users add --username '7654321 (Synapse ID)' # user2 STATUS NONE
 ```
+
+## Project Directories
+
+g3t ready project directories are available in the `projects/` directories.  Please respect .gitignore and do not commit any data or meta information.
