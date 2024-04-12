@@ -103,6 +103,7 @@ def get_current_requests(project):
         cmd = "g3t --format json utilities access ls --all"
         output = run_cmd(cmd, dry_run=False)
         json_output = json.loads(output)
+        assert 'requests' in json_output, f"Expected 'requests' in {json_output}"
         return {
             'requests': [_ for _ in json_output['requests'] if
                          _['status'] == 'SIGNED' and project in _['policy_id'] and not _['revoke']]
