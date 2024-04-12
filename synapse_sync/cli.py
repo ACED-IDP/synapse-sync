@@ -77,9 +77,12 @@ def cli(ctx, config):
         # click.secho(f"Using default config", fg="yellow", file=sys.stderr)
 
 
-def run_cmd(cmd: str):
+def run_cmd(cmd: str, dry_run: bool):
     """Run a command."""
     try:
+        if dry_run:
+            click.secho(f"DRY RUN: {cmd}", fg="yellow", file=sys.stderr)
+            return None
         result = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         if result.returncode != 0:
             click.secho(f"Command '{cmd}' failed with error: {result.stderr.decode('utf-8')}", fg="red", file=sys.stderr)
@@ -91,15 +94,20 @@ def run_cmd(cmd: str):
         return None
 
 
-def get_current_requests():
+def get_current_requests(project):
     """Get Gen3 current requests."""
     # run cmd, return stdout
 
     # click.secho(f"Getting current gen3 users", fg="yellow", file=sys.stderr)
     try:
         cmd = "g3t --format json utilities access ls --all"
-        output = run_cmd(cmd)
+        output = run_cmd(cmd, dry_run=False)
         json_output = json.loads(output)
+        return {
+            'requests': [_ for _ in json_output['requests'] if
+                         _['status'] == 'SIGNED' and project in _['policy_id'] and not _['revoke']]
+        }
+
         return json_output
     except json.JSONDecodeError as e:
         click.secho(f"Failed to parse JSON output from command '{cmd}': {e}", fg="red", file=sys.stderr)
@@ -115,8 +123,9 @@ def teams(ctx):
 
 @teams.command("sync")
 @click.option('--debug', is_flag=True, default=False, help="Show debug output.")
+@click.option('--dry_run', is_flag=True, default=False, help="List cmds, don't run them")
 @click.pass_context
-def teams_sync(ctx, debug: bool):
+def teams_sync(ctx, debug: bool, dry_run: bool):
     """List commands to add users (and current status) of a team to gen3.
 
     \b
@@ -127,8 +136,16 @@ TEAM_ID one of:
 * Voice: https://www.synapse.org/#!Team:3499898
     """
 
+    admin_users = """
+beckmanl@ohsu.edu
+ellrott@ohsu.edu
+leejor@ohsu.edu
+peterkor@ohsu.edu
+walsbr@ohsu.edu
+wongq@ohsu.edu
+""".strip().split('\n')
+
     try:
-        long = True
         config = gen3_util.config.default()
         assert config.gen3.project_id, "Not in a gen3 project directory, expected .g3t"
         click.secho(f"gen3 project_id: {config.gen3.project_id}", fg="yellow", file=sys.stderr)
@@ -151,7 +168,7 @@ TEAM_ID one of:
 
         syn = login(debug)
 
-        current_requests = get_current_requests()
+        current_requests = get_current_requests(project)
         if not current_requests:
             current_requests = {'requests': []}
             click.secho(f"Failed to get current requests, proceeding, status may not be accurate.", fg="yellow", file=sys.stderr)
@@ -162,35 +179,53 @@ TEAM_ID one of:
         assert len(current_requests['requests']) > 0, f"Expected 'requests' in {current_requests}"
 
         current_users = {_.get('username'): _ for _ in current_requests['requests'] if project in _['policy_id']}
-        # for k, v in current_users.items():
-        #     print(k, v['policy_id'], v['username'], v['status'], v['updated_time'])
 
         team = syn.getTeam(team_id)
         click.secho(f"Syncing team: {team.name}", fg="yellow", file=sys.stderr)
         cmds = []
+        new_users = []
         for _ in syn.getTeamMembers(team):
-            user_name_msg = ''
-            username = f'{_.member.ownerId} (Synapse ID)'
+            username = f'{_.member.ownerId}@synapse.org'
             cmd = f"g3t utilities users add --username"
-            if long:
-                user_name_msg = f' # {_.member.userName}'
-                if username in current_users:
-                    usr = current_users[username]
-                    user_name_msg += f" STATUS {usr['status']} {usr['updated_time']} {usr['policy_id']} "
-                    click.secho(f"# '{username}'{user_name_msg}", fg="green", file=sys.stderr)
-                    continue
-                else:
-                    user_name_msg += f" STATUS NONE"
-            cmds.append(f"{cmd} '{_.member.ownerId} (Synapse ID)'{user_name_msg}")
+            user_name_msg = f' # {_.member.userName}'
+            if username in current_users:
+                usr = current_users[username]
+                user_name_msg += f" STATUS {usr['status']} {usr['updated_time']} {usr['policy_id']} "
+                click.secho(f"# '{username}'{user_name_msg}", fg="green", file=sys.stderr)
+                continue
+            else:
+                user_name_msg += f" STATUS NONE"
+                cmds.append(f"{cmd} '{username}'{user_name_msg}")
+                new_users.append(username)
 
         if cmds:
-            click.secho(f"Adding {len(cmds)} user to gen3", fg="yellow", file=sys.stderr)
+            click.secho(f"Adding {len(cmds)} users to gen3", fg="yellow", file=sys.stderr)
             for cmd in cmds:
                 click.secho(cmd, fg="yellow", file=sys.stderr)
-                run_cmd(cmd)
-            run_cmd("g3t utilities access sign")
+                run_cmd(cmd, dry_run=dry_run)
+            run_cmd("g3t utilities access sign", dry_run=dry_run)
         else:
-            click.secho(f"No new users to add to gen3", fg="yellow", file=sys.stderr)
+            click.secho(f"No new users to add to {project}", fg="yellow", file=sys.stderr)
+
+        # remove users not in synapse
+        cmds = []
+        expected_users = [f'{_.member.ownerId}@synapse.org' for _ in syn.getTeamMembers(team)]
+        for user_name, user in current_users.items():
+            if user_name in admin_users:
+                click.secho(f"Skipping admin user {user_name}", fg="green", file=sys.stderr)
+                continue
+            if user_name not in expected_users:
+                cmd = f"g3t utilities users rm --username"
+                cmds.append(f"{cmd} '{user_name}' --project_id {program}-{project} # {user['status']} {user['updated_time']} {user['policy_id']}")
+                print(user_name, user)
+        if cmds:
+            click.secho(f"Removing {len(cmds)} users from gen3", fg="yellow", file=sys.stderr)
+            for cmd in cmds:
+                click.secho(cmd, fg="yellow", file=sys.stderr)
+                run_cmd(cmd, dry_run=dry_run)
+            run_cmd("g3t utilities access sign", dry_run=dry_run)
+        else:
+            click.secho(f"No users to remove from {project}", fg="yellow", file=sys.stderr)
 
     except Exception as e:
         click.secho(f"{e.__class__.__name__} {e}", fg="red", file=sys.stderr)
