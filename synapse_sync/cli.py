@@ -6,6 +6,7 @@ import subprocess
 import sys
 from datetime import datetime
 
+import requests
 import synapseclient
 import click
 import yaml
@@ -60,6 +61,23 @@ def default_config() -> dict:
             }
         ]
     }
+
+
+def get_gen3_users():
+    """Get gen3 users."""
+    arborist_service_port = os.environ.get('ARBORIST_SERVICE_PORT', None)
+    assert arborist_service_port, "ARBORIST_SERVICE_PORT not set, are you running on a gen3 commons POD?"
+    url = arborist_service_port.replace('tcp', 'http')
+    url = f"{url}/user"
+    response = requests.get(url)
+    assert response.status_code == 200, f"Failed to get users {response.status_code} {response.text}"
+    return response.json()
+
+
+def get_gen3_users_mock():
+    """Get gen3 users."""
+    with open('users.json') as f:
+        return json.load(f)
 
 
 @click.group()
@@ -169,17 +187,14 @@ wongq@ohsu.edu
 
         syn = login(debug)
 
-        current_requests = get_current_requests(project)
-        if not current_requests:
-            current_requests = {'requests': []}
-            click.secho(f"Failed to get current requests, proceeding, status may not be accurate.", fg="yellow", file=sys.stderr)
-        if 'requests' not in current_requests:
-            current_requests['requests'] = []
-            click.secho(current_requests['msg'], fg="yellow", file=sys.stderr)
-        assert 'requests' in current_requests, f"Expected 'requests' in {current_requests}"
-        assert len(current_requests['requests']) > 0, f"Expected 'requests' in {current_requests}"
-
-        current_users = {_.get('username'): _ for _ in current_requests['requests'] if project in _['policy_id']}
+        gen3_users = get_gen3_users()
+        current_users = {}
+        for _ in gen3_users['users']:
+            for p in _['policies']:
+                if project in p['policy']:
+                    if _['name'] not in current_users:
+                        current_users[_['name']] = {'policies': []}
+                    current_users[_['name']]['policies'].append(p['policy'])
 
         team = syn.getTeam(team_id)
         click.secho(f"Syncing team: {team.name}", fg="yellow", file=sys.stderr)
@@ -191,7 +206,7 @@ wongq@ohsu.edu
             user_name_msg = f' # {_.member.userName}'
             if username in current_users:
                 usr = current_users[username]
-                user_name_msg += f" STATUS {usr['status']} {usr['updated_time']} {usr['policy_id']} "
+                user_name_msg += f" STATUS {usr['policies']} "
                 click.secho(f"# '{username}'{user_name_msg}", fg="green", file=sys.stderr)
                 continue
             else:
@@ -217,8 +232,7 @@ wongq@ohsu.edu
                 continue
             if user_name not in expected_users:
                 cmd = f"g3t utilities users rm --username"
-                cmds.append(f"{cmd} '{user_name}' --project_id {program}-{project} # {user['status']} {user['updated_time']} {user['policy_id']}")
-                print(user_name, user)
+                cmds.append(f"{cmd} '{user_name}' --project_id {program}-{project} # {user['policies']}")
         if cmds:
             click.secho(f"Removing {len(cmds)} users from gen3", fg="yellow", file=sys.stderr)
             for cmd in cmds:
