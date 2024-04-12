@@ -1,2 +1,2 @@
 synapseclient[pandas,pysftp]
-gen3-tracker==0.0.2
+gen3-tracker>=0.0.3rc3
