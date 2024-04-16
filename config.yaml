@@ -1,0 +1,20 @@
+# Description: Configuration file for synapse sync utility
+# admin_users: list of gen3 admin users, these users will not be removed from the projects
+admin_users:
+- beckmanl@ohsu.edu
+- ellrott@ohsu.edu
+- leejor@ohsu.edu
+- peterkor@ohsu.edu
+- walsbr@ohsu.edu
+- wongq@ohsu.edu
+# id the synapse team id, name of the gen3 project
+synapse_teams:
+- id: '3499899'
+  name: AI_READI
+- id: '3499900'
+  name: CHoRUS
+- id: '3499897'
+  name: CM4AI
+- id: '3499898'
+  name: Voice
+

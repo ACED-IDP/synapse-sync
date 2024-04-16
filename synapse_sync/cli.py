@@ -11,7 +11,6 @@ import synapseclient
 import click
 import yaml
 from synapseclient import Synapse
-import gen3_util.config
 
 
 def login(debug: bool) -> Synapse:
@@ -41,7 +40,7 @@ def login(debug: bool) -> Synapse:
 
 def default_config() -> dict:
     """Return the default configuration."""
-    return {
+    _ = {
         "synapse_teams": [
             {
                 "id": "3499899",
@@ -59,8 +58,18 @@ def default_config() -> dict:
                 "id": "3499898",
                 "name": "Voice"
             }
-        ]
+        ],
+        "admin_users": []
     }
+    _['admin_users'] = """
+beckmanl@ohsu.edu
+ellrott@ohsu.edu
+leejor@ohsu.edu
+peterkor@ohsu.edu
+walsbr@ohsu.edu
+wongq@ohsu.edu
+""".strip().split('\n')
+    return _
 
 
 def get_gen3_users():
@@ -89,10 +98,10 @@ def cli(ctx, config):
     if config:
         with open(config) as f:
             ctx.obj['config'] = yaml.safe_load(f)
-            # click.secho(f"Using config file {config}", fg="yellow", file=sys.stderr)
+            click.secho(f"Using config file {config}", fg="yellow", file=sys.stderr)
     else:
         ctx.obj['config'] = default_config()
-        # click.secho(f"Using default config", fg="yellow", file=sys.stderr)
+        click.secho(f"Using default config", fg="yellow", file=sys.stderr)
 
 
 def run_cmd(cmd: str, dry_run: bool):
@@ -133,6 +142,13 @@ def get_current_requests(project):
         return None
 
 
+@cli.command()
+@click.pass_context
+def config(ctx):
+    """Print current config."""
+    print(yaml.dump(ctx.obj['config']))
+
+
 @cli.group()
 @click.pass_context
 def teams(ctx):
@@ -155,17 +171,8 @@ TEAM_ID one of:
 * Voice: https://www.synapse.org/#!Team:3499898
     """
 
-    admin_users = """
-beckmanl@ohsu.edu
-ellrott@ohsu.edu
-leejor@ohsu.edu
-peterkor@ohsu.edu
-walsbr@ohsu.edu
-wongq@ohsu.edu
-""".strip().split('\n')
-
     try:
-        config = gen3_util.config.default()
+        config = ctx.obj['config']
         assert config.gen3.project_id, "Not in a gen3 project directory, expected .g3t"
         click.secho(f"gen3 project_id: {config.gen3.project_id}", fg="yellow", file=sys.stderr)
 
