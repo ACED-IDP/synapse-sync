@@ -90,7 +90,7 @@ def get_gen3_users_mock():
 
 
 @click.group()
-@click.option('--config', type=click.Path(exists=True), default=None, help="path to config file")
+@click.option('--config', type=click.Path(exists=True), default=None, help="path to config file", envvar="SYNAPSE_SYNC_CONFIG" )
 @click.pass_context
 def cli(ctx, config):
     """Sync synapse teams with gen3."""

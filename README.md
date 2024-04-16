@@ -33,30 +33,29 @@ g3t ping
 
 ## Usage
 
+* crontab
 ```shell
-$ g3t_synapse_sync teams ls --help
+PATH=/root/synapse-sync/venv/bin:/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+SHELL=/bin/bash
+SYNAPSE_SYNC_CONFIG=/root/synapse-sync/config.yaml
+*/30 * * * * cd /root/synapse-sync && source venv/bin/activate && g3t_synapse_sync teams sync-all
+```
+
+
+```shell
+g3t_synapse_sync teams --help
 Using default config
-Usage: g3t_synapse_sync teams ls [OPTIONS] TEAM_ID
+Usage: g3t_synapse_sync teams [OPTIONS] COMMAND [ARGS]...
 
-  List commands to add users (and current status) of a team to gen3.
+  Teams commands.
 
-      TEAM_ID one of:
-      * AI_READI: https://www.synapse.org/#!Team:3499899
-      * CHoRUS: https://www.synapse.org/#!Team:3499900
-      * CM4AI: https://www.synapse.org/#!Team:3499897
-      * Voice: https://www.synapse.org/#!Team:3499898
-          
+Options:
+  --help  Show this message and exit.
 
-# eg
+Commands:
+  sync      List commands to add users (and current status) of a team to...
+  sync-all  Sync teams with gen3.
 
-$ g3t_synapse_sync teams ls AI_READI -l
-Using default config
-Logging in to synapse
-Getting current gen3 users
-Syncing team: Bridge2AI AI-READI Open House Participants
-<cmd> # name status updated_time policy_id
-g3t utilities users add --username '1234567 (Synapse ID)' # user1 STATUS SIGNED 2024-04-06T23:58:31.828793 programs.bridge2ai.projects.AI_READI_reader 
-g3t utilities users add --username '7654321 (Synapse ID)' # user2 STATUS NONE
 ```
 
 ## Project Directories
