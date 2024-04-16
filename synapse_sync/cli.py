@@ -6,6 +6,7 @@ import subprocess
 import sys
 from datetime import datetime
 
+import gen3_util
 import requests
 import synapseclient
 import click
@@ -172,12 +173,13 @@ TEAM_ID one of:
     """
 
     try:
-        config = ctx.obj['config']
-        assert config.gen3.project_id, "Not in a gen3 project directory, expected .g3t"
-        click.secho(f"gen3 project_id: {config.gen3.project_id}", fg="yellow", file=sys.stderr)
+        g3t_config = gen3_util.config.default()
+        assert g3t_config.gen3.project_id, "Not in a gen3 project directory, expected .g3t"
+        click.secho(f"gen3 project_id: {g3t_config.gen3.project_id}", fg="yellow", file=sys.stderr)
 
-        program, project = config.gen3.project_id.split('-')
+        program, project = g3t_config.gen3.project_id.split('-')
         # click.secho(f"using gen3 project: {project} as team_id", fg="yellow", file=sys.stderr)
+
         team_id = project
 
         valid_team_ids = [_['id'] == team_id for _ in ctx.obj['config']['synapse_teams']]
@@ -234,7 +236,7 @@ TEAM_ID one of:
         cmds = []
         expected_users = [f'{_.member.ownerId}@synapse.org' for _ in syn.getTeamMembers(team)]
         for user_name, user in current_users.items():
-            if user_name in admin_users:
+            if user_name in ctx.obj['config']['admin_users']:
                 click.secho(f"Skipping admin user {user_name}", fg="green", file=sys.stderr)
                 continue
             if user_name not in expected_users:
