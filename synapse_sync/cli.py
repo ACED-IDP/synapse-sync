@@ -12,6 +12,7 @@ import synapseclient
 import click
 import yaml
 from synapseclient import Synapse
+import gen3_util.config
 
 
 def login(debug: bool) -> Synapse:
